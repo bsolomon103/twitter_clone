@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class='row text-center'>
+    <div class='col'>
+        <h1>The BluePrint</h1>
+    </div>
+</div>
+
+<div class='row text-center mb-4'>
+    <div class='col-md-4 mx-auto col-10'>
+        <div class='alert alert-danger d-none' id='tweet-create-form-error'></div>
+        <form class='form' id='tweet-create-form' action='api/tweets/create/' method='POST'>
+            {% csrf_token %}
+            <input type='hidden' value='' name='next' />
+            <textarea class='form-control' required='required' name='content' placeholder='Tweet Here...'></textarea>
+            <button type='submit' class='btn btn-primary btn-sm mt-2'>Tweet</button>
+        </form>
+    </div>
+</div>
+
+<div class='row' id='tweets'>
+    <div>
+        Loading...
+    </div>
+</div>
+
+<script>
+    function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            // Does this cookie string begin with the name we want?
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+    }
+    
+    const formSubmitElement = document.getElementById('tweet-create-form-error')
+    const formSubmitError = (msg, display) => {
+        if (display === true){
+            formSubmitElement.setAttribute('class','alert alert-danger d-block')
+            formSubmitElement.innerHTML = msg
+            return formSubmitElement.innerHTML
+        }
+        else if(display === false){
+            formSubmitElement.setAttribute('class', 'alert alert-danger d-none')
+            formSubmitElement.innerHTML = msg
+        }
+    }
+    
+    const tweetElementsContainer = document.getElementById('tweets');
+    
+     const handleFormSumbit = (event) => {
+        event.preventDefault();
+        const myForm = event.target;
+        const myFormData = new FormData(myForm);
+        const method = myForm.getAttribute('method');
+        const url = myForm.getAttribute('action');
+     
+        const xhr = new XMLHttpRequest();
+        const responseType = 'json';
+        xhr.responseType = responseType;
+        xhr.open(method, url);
+        xhr.setRequestHeader("HTTP_X_REQUESTED_WITH","XMLHttpRequest");
+        xhr.setRequestHeader("X-Requested-With","XMLHttpRequest");
+        xhr.onload = function () {
+            
+            if (xhr.status === 201) {
+            formSubmitError('',false)
+            const tweetFromServerResponse = xhr.response;
+            const newHtml = formatTweets(tweetFromServerResponse);
+            const ogHtml = tweetElementsContainer.innerHTML;
+            tweetElementsContainer.innerHTML = newHtml + ogHtml;
+            myForm.reset();
+            }
+            if (xhr.status === 400) {
+                const errorJson = xhr.response;
+                const errorJsonMsg = errorJson.content;
+                formSubmitError(errorJsonMsg, true)
+                //console.log(errorJson);
+            }
+        };
+      xhr.send(myFormData); 
+    };
+    const tweetCreateFormContainer = document.getElementById('tweet-create-form');
+    tweetCreateFormContainer.addEventListener('submit', handleFormSumbit);
+    
+    const loadTweets = (tweetElements) => {
+        const xhr = new XMLHttpRequest();
+        const method = 'GET';
+        const url = 'api/tweets/';
+        const responseType = 'json';
+        xhr.responseType = responseType;
+        xhr.open(method, url);
+        xhr.onload = function () {
+            const serverResponse = xhr.response;
+            let listedItems = serverResponse;
+            let i;
+            let finalTweetString = '';
+            for (i=0; i<listedItems.length; i++) {
+                let currentTweet = listedItems[i];
+                finalTweetString += formatTweets(currentTweet);
+               
+                
+            }
+            tweetElements.innerHTML = finalTweetString;
+        };
+    xhr.send();
+    }
+    
+   
+    const formatTweets = (tweets) => {
+        let formatted = "<div class='col-12 col-md-10 mx-auto border py-3 mb-3'><p>"
+        +tweets.content+
+        "</p><div class='btn btn-group'>"+LikeBtn(tweets)+" "+UnLikeBtn(tweets)+""+RetweetBtn(tweets)+"</div></div>";
+        return formatted;
+    };
+    
+ 
+    const LikeBtn = (tweets) => {
+        return "<button class='btn btn-primary btn-sm' onclick=handleActionButtonPressed("+tweets.id+",'like')>"+tweets.likes+" Likes</button>";
+    };
+    
+    const UnLikeBtn = (tweets) => {
+        return "<button class='btn btn-outline-primary btn-sm' onclick=handleActionButtonPressed("+tweets.id+",'unlike')>Unlike</button>"
+    }
+    
+    const RetweetBtn = (tweets) => {
+        return "<button class='btn btn-outline-success btn-sm' onclick=handleActionButtonPressed("+tweets.id+",'retweet')>Retweet</button>"
+    }
+  
+    
+    const handleActionButtonPressed = (id, action) => {
+        const method = 'POST';
+        const url = 'api/tweets/action/';
+        const responseType = 'json';
+        const csrf_token = getCookie('csrftoken');
+        const data = JSON.stringify({
+            id:id,
+            action:action
+        })
+        const xhr = new XMLHttpRequest();
+        xhr.open(method, url);
+        xhr.setRequestHeader('Content-Type', 'application/json')
+        xhr.setRequestHeader('X-CSRFToken', csrf_token);
+        xhr.setRequestHeader("X-Requested-With","XMLHttpRequest");
+        xhr.setRequestHeader("HTTP_X_REQUESTED_WITH","XMLHttpRequest");
+        xhr.setRequestHeader("X-Requested-With","XMLHttpRequest");
+        xhr.onload = function () {
+            loadTweets(tweetElementsContainer);
+            
+        }
+    xhr.send(data);
+    };
+
+loadTweets(tweetElementsContainer);
+
+</script>
+
+
+
+{% endblock %}
